@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>데모 쇼핑몰</title>
+  <style>
+:root{
+  --primary:#667eea; --accent:#764ba2; --green:#28a745; --danger:#dc3545;
+  --card-bg:#ffffff; --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{font-family:"Noto Sans KR",Arial,sans-serif;margin:0;background:linear-gradient(180deg,#f7f8fc,#eef2ff);color:#222; -webkit-text-size-adjust:100%;}
+header{background:linear-gradient(90deg,var(--primary),var(--accent));color:#fff;padding:18px 20px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{margin:0;font-size:1.3rem}
+.controls{display:flex;align-items:center;gap:10px}
+.search-wrap{display:flex;align-items:center;gap:8px}
+#search{padding:10px 14px;border-radius:20px;border:none;width:260px}
+#searchBtn{padding:10px 14px;border-radius:20px;border:none;background:#fff;color:var(--accent);cursor:pointer}
+#cart{background:rgba(255,255,255,0.1);padding:8px 12px;border-radius:999px;cursor:pointer;color:#fff}
+#loginBtn{background:#fff;color:var(--accent);padding:8px 12px;border-radius:20px;border:none;cursor:pointer}
+#userInfo{display:flex;align-items:center;gap:8px;color:#fff}
+
+/* main & product list */
+main{padding:28px}
+#productList{display:flex;flex-wrap:wrap;gap:20px;justify-content:center}
+.product{width:260px;background:var(--card-bg);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(102,126,234,0.12);text-align:center;transition:transform .18s,box-shadow .18s}
+.product:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(102,126,234,0.14)}
+.product img{width:160px;height:160px;object-fit:cover;border-radius:8px}
+.product h3{margin:10px 0 4px;font-size:1.05rem}
+.product p.price{color:var(--muted);margin:6px 0 12px;font-weight:700}
+
+/* buttons */
+.btn{padding:8px 12px;border:none;border-radius:8px;cursor:pointer}
+.btn-green{background:var(--green);color:#fff}
+.btn-outline{background:transparent;border:1px solid #e5e7eb;color:#111}
+
+/* modal common */
+.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(2,6,23,0.45);z-index:50;align-items:center;justify-content:center;padding:16px}
+.modal-content{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:520px;box-shadow:0 8px 30px rgba(2,6,23,0.2);position:relative}
+.modal .close{position:absolute;right:14px;top:8px;font-size:22px;color:#999;cursor:pointer}
+
+/* cart */
+#cartItems{max-height:300px;overflow:auto;margin-bottom:10px}
+.cart-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f1f1}
+.cart-item .meta{display:flex;align-items:center;gap:12px}
+.cart-item img{width:48px;height:48px;object-fit:cover;border-radius:6px}
+.qty-controls{display:flex;gap:6px;align-items:center}
+.qty-controls button{padding:6px 8px;border-radius:6px}
+
+/* detail */
+#detailImage{width:100%;max-width:320px;height:auto;border-radius:8px;display:block;margin:8px auto}
+
+/* form */
+input[type="text"], input[type="password"], input[type="email"], input[type="number"], textarea{
+  width:100%;padding:10px;border-radius:8px;border:1px solid #e5e7eb;margin-top:8px;margin-bottom:10px;font-size:0.95rem;
+}
+label{font-size:0.9rem;color:var(--muted)}
+
+/* messages */
+.msg{font-size:0.95rem;margin-top:6px}
+.msg.error{color:var(--danger);font-weight:700}
+.msg.success{color:green;font-weight:700}
+
+/* auth */
+.auth-forms{display:flex;gap:12px;flex-direction:column}
+.auth-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px}
+
+/* checkout */
+.checkout-grid{display:flex;flex-direction:column;gap:10px}
+.small{font-size:0.9rem;color:var(--muted)}
+
+/* 모바일에서 터치 스와이프로 스냅(선택적으로 부드러운 섹션 이동) */
+html, body { scroll-behavior: smooth; }
+
+/* responsive */
+@media(min-width:900px){
+  main{padding:40px 60px}
+  #productList{justify-content:flex-start}
+}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>데모 쇼핑몰</h1>
+      <div class="small" style="color:rgba(255,255,255,0.85)">간단한 로컬 데모</div>
+    </div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <input id="search" type="text" placeholder="상품 검색" />
+        <button id="searchBtn">검색</button>
+      </div>
+
+      <div id="cart" title="장바구니">
+        <span id="cartCount">0</span> 개
+      </div>
+
+      <div id="userArea">
+        <button id="loginBtn">로그인 / 회원가입</button>
+        <div id="userInfo" style="display:none">
+          <span id="username" style="font-weight:700"></span>
+          <button id="logoutBtn" class="btn" style="background:var(--danger);color:#fff;border-radius:8px">로그아웃</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="productList"></div>
+  </main>
+
+  <!-- 장바구니 모달 -->
+  <div id="cartModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="cartClose">&times;</span>
+      <h2>장바구니</h2>
+      <div id="cartItems"></div>
+      <div class="total-row" style="display:flex;justify-content:space-between;font-weight:700;margin-top:12px;font-size:1.05rem">
+        <div>총 가격</div>
+        <div><span id="totalPrice">0</span>원</div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">
+        <button id="checkoutBtn" class="btn btn-green">결제하기</button>
+        <button id="closeCartBtn" class="btn btn-outline">닫기</button>
+      </div>
+      <div id="cartMsg" class="msg" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- 상세보기 모달 -->
+  <div id="detailModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="detailClose">&times;</span>
+      <h2 id="detailTitle"></h2>
+      <img id="detailImage" src="" alt="detail" />
+      <p id="detailDescription"></p>
+      <p id="detailPrice" style="font-weight:700"></p>
+      <div style="text-align:center;margin-top:10px">
+        <button id="detailAddBtn" class="btn btn-green">장바구니 추가</button>
+        <button id="detailCloseBtn" class="btn btn-outline">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 인증 모달 -->
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="authClose">&times;</span>
+
+      <div id="loginForm" class="auth-forms">
+        <h2>로그인</h2>
+        <label for="loginUsername">아이디</label>
+        <input id="loginUsername" type="text" />
+        <label for="loginPassword">비밀번호</label>
+        <input id="loginPassword" type="password" />
+        <div class="auth-actions">
+          <div style="display:flex;gap:8px">
+            <button id="doLogin" class="btn btn-green">로그인</button>
+            <button id="showSignup" class="btn btn-outline">회원가입</button>
+          </div>
+          <div id="loginError" class="msg error" style="display:none"></div>
+        </div>
+      </div>
+
+      <div id="signupForm" class="auth-forms" style="display:none">
+        <h2>회원가입</h2>
+        <label for="signupUsername">아이디</label>
+        <input id="signupUsername" type="text" />
+        <label for="signupEmail">이메일</label>
+        <input id="signupEmail" type="email" />
+        <label for="signupPassword">비밀번호</label>
+        <input id="signupPassword" type="password" />
+        <div class="auth-actions">
+          <div style="display:flex;gap:8px">
+            <button id="doSignup" class="btn btn-green">회원가입</button>
+            <button id="showLogin" class="btn btn-outline">로그인</button>
+          </div>
+          <div id="signupError" class="msg error" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결제 모달 -->
+  <div id="checkoutModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="checkoutClose">&times;</span>
+      <h2>결제</h2>
+      <div id="checkoutForm" class="checkout-grid">
+        <label>수령인 이름</label>
+        <input id="payName" type="text" />
+        <label>배송지</label>
+        <input id="payAddress" type="text" />
+        <label>카드번호</label>
+        <input id="payCard" type="text" placeholder="1234 5678 9012 3456" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+          <button id="confirmPay" class="btn btn-green">결제 완료</button>
+          <button id="cancelPay" class="btn btn-outline">취소</button>
+        </div>
+        <div id="checkoutError" class="msg error" style="display:none"></div>
+        <div id="checkoutSuccess" class="msg success" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+/* 상품 목록: 다양하게 구성 (이미지는 assets/에 임의로 넣어 사용하세요) */
+const products = [
+  { id:1, name:'무선 이어폰 V1', price:49000, image:'assets/product1.jpg', description:'고음질 무선 이어폰, 긴 배터리' },
+  { id:2, name:'블루투스 스피커 XL', price:89000, image:'assets/product2.jpg', description:'강력한 베이스와 휴대성' },
+  { id:3, name:'게이밍 마우스 G5', price:59000, image:'assets/product3.jpg', description:'고해상도 센서, 커스텀 버튼' },
+  { id:4, name:'기본형 백팩', price:42000, image:'assets/product4.jpg', description:'내구성 좋은 일상용 백팩' },
+  { id:5, name:'스마트워치 S', price:129000, image:'assets/product5.jpg', description:'건강관리와 알림 기능' },
+  { id:6, name:'무선 충전기 듀오', price:35000, image:'assets/product6.jpg', description:'폰 + 이어폰 동시 충전 가능' },
+  { id:7, name:'DSLR 카메라 L', price:899000, image:'assets/product7.jpg', description:'초고화질 사진 촬영 가능' },
+  { id:8, name:'휴대용 보조배터리 20000mAh', price:39000, image:'assets/product8.jpg', description:'고속충전 지원' },
+  { id:9, name:'프리미엄 이어패드', price:12000, image:'assets/product9.jpg', description:'편안한 착용감' },
+  { id:10, name:'무선 키보드 콤팩트', price:45000, image:'assets/product10.jpg', description:'슬림한 디자인, 긴 배터리' },
+  { id:11, name:'홈트레이닝 매트', price:22000, image:'assets/product11.jpg', description:'충격흡수 우수, 접이 가능' },
+  { id:12, name:'스마트 전구 (RGB)', price:18000, image:'assets/product12.jpg', description:'앱으로 색상/밝기 제어' }
+];
+
+let cart = []; // [{id, qty}]
+let currentProduct = null;
+let isLoggedIn = false;
+let currentUser = null;
+
+/* 로컬스토리지 헬퍼 */
+function getUsers(){ return JSON.parse(localStorage.getItem('users')||'[]') }
+function setUsers(u){ localStorage.setItem('users', JSON.stringify(u)) }
+function saveCartForUser(username){
+  if(!username) return;
+  localStorage.setItem('cart_' + username, JSON.stringify(cart));
+}
+function loadCartForUser(username){
+  const data = JSON.parse(localStorage.getItem('cart_' + username) || '[]');
+  cart = Array.isArray(data) ? data : [];
+}
+
+/* 렌더 상품 */
+function displayProducts(list){
+  const wrap = document.getElementById('productList');
+  wrap.innerHTML = '';
+  list.forEach(p=>{
+    const div = document.createElement('div'); div.className = 'product';
+    div.innerHTML = `
+      <img src="${p.image}" alt="${p.name}" />
+      <h3>${p.name}</h3>
+      <p class="price">${p.price.toLocaleString()}원</p>
+      <div style="display:flex;justify-content:center;gap:8px">
+        <button class="btn btn-outline" data-id="${p.id}" data-action="view">상세보기</button>
+        <button class="btn btn-green" data-id="${p.id}" data-action="add">장바구니 추가</button>
+      </div>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+/* 모달 유틸 */
+function showModal(id){ document.getElementById(id).style.display = 'flex' }
+function hideModal(id){ document.getElementById(id).style.display = 'none' }
+
+/* 카트 관련 */
+function updateCartCount(){
+  const count = cart.reduce((s,i)=>s + (i.qty||0), 0);
+  document.getElementById('cartCount').textContent = count;
+}
+function updateTotalPrice(){
+  const total = cart.reduce((s,i)=>{
+    const p = products.find(x=>x.id===i.id);
+    return s + (p ? p.price * (i.qty||0) : 0);
+  }, 0);
+  document.getElementById('totalPrice').textContent = total.toLocaleString();
+}
+function displayCart(){
+  const el = document.getElementById('cartItems'); el.innerHTML = '';
+  if(cart.length === 0){
+    el.innerHTML = '<div class="small">장바구니가 비어 있습니다.</div>';
+    updateTotalPrice();
+    return;
+  }
+  cart.forEach((it, idx)=>{
+    const p = products.find(x=>x.id === it.id);
+    const row = document.createElement('div'); row.className = 'cart-item';
+    row.innerHTML = `
+      <div class="meta">
+        <img src="${p.image}" />
+        <div>
+          <div style="font-weight:700">${p.name}</div>
+          <div class="small">${p.price.toLocaleString()}원</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div class="qty-controls">
+          <button class="btn btn-outline" data-idx="${idx}" data-action="dec">-</button>
+          <div style="padding:6px 8px;border:1px solid #eee;border-radius:6px">${it.qty}</div>
+          <button class="btn btn-outline" data-idx="${idx}" data-action="inc">+</button>
+        </div>
+        <div><button class="btn btn-outline" data-idx="${idx}" data-action="remove">전체제거</button></div>
+      </div>
+    `;
+    el.appendChild(row);
+  });
+  updateTotalPrice();
+}
+
+/* 카트 조작: id 기준으로 qty 증가 */
+function addToCart(id){
+  if(!isLoggedIn){ alert('로그인이 필요합니다.'); showModal('authModal'); return; }
+  const found = cart.find(x=>x.id===id);
+  if(found) found.qty += 1;
+  else cart.push({id, qty:1});
+  updateCartCount(); displayCart(); saveCartForUser(currentUser.username);
+}
+function incQty(index){
+  if(cart[index]) { cart[index].qty += 1; updateCartCount(); displayCart(); saveCartForUser(currentUser.username); }
+}
+function decQty(index){
+  if(cart[index]){
+    cart[index].qty -= 1;
+    if(cart[index].qty <= 0) cart.splice(index,1);
+    updateCartCount(); displayCart(); saveCartForUser(currentUser.username);
+  }
+}
+function removeItem(index){
+  if(cart[index]){ cart.splice(index,1); updateCartCount(); displayCart(); saveCartForUser(currentUser.username); }
+}
+
+/* 상세보기 */
+function viewDetail(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  currentProduct = p;
+  document.getElementById('detailTitle').textContent = p.name;
+  document.getElementById('detailImage').src = p.image;
+  document.getElementById('detailDescription').textContent = p.description;
+  document.getElementById('detailPrice').textContent = p.price.toLocaleString() + '원';
+  showModal('detailModal');
+}
+
+/* 인증 (localStorage 기반) */
+function doLogin(){
+  const user = document.getElementById('loginUsername').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError'); errEl.style.display='none'; errEl.textContent='';
+  if(!user || !pass){ errEl.textContent='아이디와 비밀번호를 입력하세요.'; errEl.style.display='block'; return; }
+  const users = getUsers();
+  const found = users.find(u=>u.username===user && u.password===pass);
+  if(!found){
+    errEl.textContent='아이디 또는 비밀번호가 틀렸습니다.'; errEl.style.display='block'; return;
+  }
+  isLoggedIn = true; currentUser = found;
+  loadCartForUser(found.username);
+  document.getElementById('authModal').style.display='none';
+  document.getElementById('loginBtn').style.display='none';
+  document.getElementById('userInfo').style.display='flex';
+  document.getElementById('username').textContent = found.username;
+  document.getElementById('loginUsername').value=''; document.getElementById('loginPassword').value='';
+  updateCartCount(); updateTotalPrice();
+}
+function doSignup(){
+  const user = document.getElementById('signupUsername').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pass = document.getElementById('signupPassword').value;
+  const errEl = document.getElementById('signupError'); errEl.style.display='none'; errEl.textContent='';
+  if(!user || !email || !pass){ errEl.textContent='모든 항목을 입력하세요.'; errEl.style.display='block'; return; }
+  const users = getUsers();
+  if(users.find(u=>u.username===user)){ errEl.textContent='이미 존재하는 아이디입니다.'; errEl.style.display='block'; return; }
+  users.push({username:user,email,password:pass});
+  setUsers(users);
+  localStorage.setItem('cart_' + user, JSON.stringify([]));
+  alert('회원가입이 완료되었습니다. 로그인 해주세요.');
+  showLogin();
+  document.getElementById('signupUsername').value=''; document.getElementById('signupEmail').value=''; document.getElementById('signupPassword').value='';
+}
+function doLogout(){
+  if(currentUser) saveCartForUser(currentUser.username);
+  isLoggedIn = false; currentUser = null; cart = []; updateCartCount(); updateTotalPrice();
+  document.getElementById('loginBtn').style.display='inline-block';
+  document.getElementById('userInfo').style.display='none';
+}
+
+/* 결제 */
+function startCheckout(){
+  if(!isLoggedIn){ alert('로그인이 필요합니다.'); showModal('authModal'); return; }
+  if(cart.length===0){ const el=document.getElementById('cartMsg'); el.textContent='장바구니에 상품을 담아주세요.'; el.className='msg error'; return; }
+  document.getElementById('checkoutError').style.display='none'; document.getElementById('checkoutSuccess').style.display='none';
+  showModal('checkoutModal');
+}
+function confirmPayment(){
+  const name = document.getElementById('payName').value.trim();
+  const addr = document.getElementById('payAddress').value.trim();
+  const card = document.getElementById('payCard').value.trim();
+  const err = document.getElementById('checkoutError'); const ok = document.getElementById('checkoutSuccess');
+  err.style.display='none'; ok.style.display='none';
+  if(!name || !addr || !card){ err.textContent='모든 결제 정보를 입력하세요.'; err.style.display='block'; return; }
+  if(card.replace(/\s+/g,'').length < 12){ err.textContent='유효한 카드번호를 입력하세요.'; err.style.display='block'; return; }
+  ok.textContent = '결제가 완료되었습니다! 주문이 접수되었습니다.'; ok.style.display='block';
+  cart = []; updateCartCount(); updateTotalPrice(); displayCart();
+  saveCartForUser(currentUser.username);
+  setTimeout(()=>{ hideModal('checkoutModal'); document.getElementById('payName').value=''; document.getElementById('payAddress').value=''; document.getElementById('payCard').value=''; ok.style.display='none' }, 1400);
+}
+
+/* 이벤트 바인딩 */
+document.addEventListener('click', (e)=>{
+  const action = e.target.getAttribute('data-action');
+  if(action==='view') viewDetail(Number(e.target.getAttribute('data-id')));
+  if(action==='add') { addToCart(Number(e.target.getAttribute('data-id'))); }
+  if(action==='remove') removeItem(Number(e.target.getAttribute('data-idx')));
+  if(action==='inc') incQty(Number(e.target.getAttribute('data-idx')));
+  if(action==='dec') decQty(Number(e.target.getAttribute('data-idx')));
+});
+
+document.getElementById('searchBtn').addEventListener('click', ()=>{
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const filtered = products.filter(p=>p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+  displayProducts(filtered);
+});
+
+document.getElementById('cart').addEventListener('click', ()=>{
+  displayCart(); document.getElementById('cartMsg').textContent=''; hideModal('authModal'); showModal('cartModal');
+});
+document.getElementById('cartClose').addEventListener('click', ()=>hideModal('cartModal'));
+document.getElementById('closeCartBtn').addEventListener('click', ()=>hideModal('cartModal'));
+document.getElementById('checkoutBtn').addEventListener('click', startCheckout);
+
+document.getElementById('detailClose').addEventListener('click', ()=>hideModal('detailModal'));
+document.getElementById('detailCloseBtn').addEventListener('click', ()=>hideModal('detailModal'));
+document.getElementById('detailAddBtn').addEventListener('click', ()=>{ if(currentProduct) addToCart(currentProduct.id); hideModal('detailModal'); });
+
+document.getElementById('authClose').addEventListener('click', ()=>hideModal('authModal'));
+document.getElementById('loginBtn').addEventListener('click', ()=>{ showLogin(); showModal('authModal'); });
+
+document.getElementById('doLogin').addEventListener('click', doLogin);
+document.getElementById('doSignup').addEventListener('click', doSignup);
+
+document.getElementById('showSignup').addEventListener('click', showSignup);
+document.getElementById('showLogin').addEventListener('click', showLogin);
+
+document.getElementById('logoutBtn').addEventListener('click', doLogout);
+
+document.getElementById('checkoutClose').addEventListener('click', ()=>hideModal('checkoutModal'));
+document.getElementById('cancelPay').addEventListener('click', ()=>hideModal('checkoutModal'));
+document.getElementById('confirmPay').addEventListener('click', confirmPayment);
+
+/* 폼 전환 */
+function showSignup(){
+  document.getElementById('loginForm').style.display='none';
+  document.getElementById('signupForm').style.display='block';
+  document.getElementById('loginError').style.display='none';
+  document.getElementById('signupError').style.display='none';
+}
+function showLogin(){
+  document.getElementById('signupForm').style.display='none';
+  document.getElementById('loginForm').style.display='block';
+  document.getElementById('loginError').style.display='none';
+  document.getElementById('signupError').style.display='none';
+}
+
+/* 초기화 */
+displayProducts(products);
+updateCartCount();
+updateTotalPrice();
+
+/* ---------- 모바일 터치 스와이프로 화면 단위 이동 기능 추가 ---------- */
+/* 동작: 화면(뷰포트) 단위로 아래/위로 부드럽게 스크롤(스냅)합니다.
+   내부에서 스크롤 가능한 요소(예: 모달 내 스크롤, 장바구니 리스트 등)에서는 동작을 막아 사용자 경험을 해치지 않습니다. */
+(function(){
+  let touchStartY = 0;
+  let touchCurrentY = 0;
+  let touchStartTarget = null;
+  const threshold = 60; // 최소 스와이프 거리 (px)
+  let isSnapping = false;
+  const snapCooldown = 600; // ms
+
+  function isModalOpen(){
+    const modals = ['cartModal','detailModal','authModal','checkoutModal'];
+    return modals.some(id => {
+      const el = document.getElementById(id);
+      return el && el.style.display === 'flex';
+    });
+  }
+
+  function isElementScrollable(el){
+    if(!el) return false;
+    // 입력 요소는 스크롤 동작 방지
+    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if(tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable) return true;
+    // 스크롤 가능한지 판정
+    return el.scrollHeight > el.clientHeight + 1;
+  }
+
+  function findScrollableAncestor(node){
+    while(node && node !== document.body && node !== document.documentElement){
+      if(isElementScrollable(node)) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function handleTouchStart(e){
+    if(e.touches.length > 1) return;
+    touchStartY = e.touches[0].clientY;
+    touchCurrentY = touchStartY;
+    touchStartTarget = e.target;
+  }
+
+  function handleTouchMove(e){
+    if(e.touches.length > 1) return;
+    touchCurrentY = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e){
+    if(isSnapping) return;
+    const deltaY = touchStartY - touchCurrentY;
+    if(Math.abs(deltaY) < threshold) return;
+
+    // 모달이 열려있거나, 스크롤 가능한 내부 요소에서 발생했으면 기본 스크롤 동작 유지
+    if(isModalOpen()) return;
+    const scrollableAncestor = findScrollableAncestor(touchStartTarget);
+    if(scrollableAncestor){
+      // 만약 스크롤 가능한 요소가 있고 그 요소가 맨 위/맨 아래가 아니라면 스와이프를 페이지 단위로 처리하지 않음
+      if(scrollableAncestor.scrollTop > 0 && scrollableAncestor.scrollTop + scrollableAncestor.clientHeight < scrollableAncestor.scrollHeight) {
+        return;
+      }
+      // 만약 위로 스와이프 (내리기)인데 요소가 이미 맨 아래면 페이지 스냅 허용
+      if(deltaY > 0 && scrollableAncestor.scrollTop + scrollableAncestor.clientHeight < scrollableAncestor.scrollHeight) return;
+      // 만약 아래로 스와이프 (올리기)인데 요소가 이미 맨 위면 페이지 스냅 허용
+      if(deltaY < 0 && scrollableAncestor.scrollTop > 0) return;
+    }
+
+    const doc = document.scrollingElement || document.documentElement;
+    const current = doc.scrollTop;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+
+    let target = current;
+    if(deltaY > 0){
+      // 스와이프 업 -> 다음 화면으로
+      target = Math.min(current + vh, doc.scrollHeight - vh);
+    } else {
+      // 스와이프 다운 -> 이전 화면으로
+      target = Math.max(0, current - vh);
+    }
+
+    if(target === current) return;
+
+    isSnapping = true;
+    window.scrollTo({ top: target, behavior: 'smooth' });
+    setTimeout(()=>{ isSnapping = false; }, snapCooldown);
+  }
+
+  // 터치 이벤트 바인딩: 모바일에서만 적용되도록 터치 이벤트만 사용
+  document.addEventListener('touchstart', handleTouchStart, {passive:true});
+  document.addEventListener('touchmove', handleTouchMove, {passive:true});
+  document.addEventListener('touchend', handleTouchEnd, {passive:true});
+})();
+  /* ---------- end touch snap ---------- */
+  </script>
+</body>
+</html>
